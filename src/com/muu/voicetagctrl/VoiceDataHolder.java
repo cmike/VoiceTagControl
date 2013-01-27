@@ -32,6 +32,7 @@ public class VoiceDataHolder extends Thread {
 			sampleRate = 44100;
 		
 		int framePeriod = sampleRate * wave_chunk_ms / 1000; // The number of oscillations during 'wave_chunk_ms'
+<<<<<<< HEAD
 		int bufferSize = framePeriod * bSamples * nChannels / 8;
 		
 		if (bufferSize % 1024 != 0) {
@@ -47,6 +48,12 @@ public class VoiceDataHolder extends Thread {
 		Integer.toString(framePeriod)   +
 		" Frame Buffer (bytes) "        +
 		Integer.toString(frameByteSize));
+=======
+		int bufferSize = framePeriod * 2 * bSamples * nChannels / 8;
+		
+		frameByteSize = bufferSize;
+			
+>>>>>>> origin/master
 		// need to be larger than size of a frame
 		int recBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfiguration, audioEncoding); 
 		if (recBufSize > 0) {
@@ -56,8 +63,11 @@ public class VoiceDataHolder extends Thread {
 				recBufSize = frameByteSize * N_FRAMES_IN_HW_BUFFER;
 			}
 			
+<<<<<<< HEAD
 			Log.d ("Init 2", "AudioRecord Bugger (bytes) " +
 			Integer.toString(recBufSize));
+=======
+>>>>>>> origin/master
 			audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 
 					sampleRate, channelConfiguration, audioEncoding, recBufSize);
 			if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
@@ -124,16 +134,21 @@ public class VoiceDataHolder extends Thread {
 	};
 	
 	public byte[] getFrameBytes(){
+<<<<<<< HEAD
 		int n_read = audioRecord.read(buffer, 0, frameByteSize);
 		
 		Log.d("getFrameBytes", 
 				"Read " + Integer.toString(n_read) + 
 				" out of " + Integer.toString (frameByteSize));
+=======
+		audioRecord.read(buffer, 0, frameByteSize);
+>>>>>>> origin/master
 		
 		// analyze sound
 		int totalAbsValue = 0;
         short sample = 0; 
         
+<<<<<<< HEAD
         for (int i = 1; i < n_read; i += 2) {
             sample = (short)((buffer[i-1]) | buffer[i] << 8);
             totalAbsValue += Math.abs(sample);
@@ -142,6 +157,15 @@ public class VoiceDataHolder extends Thread {
 
         Log.d("getFrameBytes", 
         		"Average Volume " + Float.toString(averageAbsVolume));
+=======
+        for (int i = 0; i < frameByteSize; i += 2) {
+            sample = (short)((buffer[i]) | buffer[i + 1] << 8);
+            totalAbsValue += Math.abs(sample);
+        }
+        averageAbsVolume = totalAbsValue / frameByteSize / 2;
+
+        //System.out.println(averageAbsValue);
+>>>>>>> origin/master
         
         // no input
         if (averageAbsVolume < 30){
@@ -153,9 +177,12 @@ public class VoiceDataHolder extends Thread {
 	
 	public void run() {
 		startRecording();
+<<<<<<< HEAD
 		if (getFrameBytes() != null) {
 			VolumeLevelNotify();
 		}
+=======
+>>>>>>> origin/master
 	}
 	
 
