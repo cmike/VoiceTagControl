@@ -51,7 +51,7 @@ public class VoiceTagControlActivity extends Activity {
 	
 	private void stopRecording () {
 		if (mVoiceData !=null && mVoiceData.isRecording())
-			mVoiceData.startRecording();
+			mVoiceData.stopRecording();
 	}
 	private View.OnClickListener btnClick = new View.OnClickListener() {
 		@Override

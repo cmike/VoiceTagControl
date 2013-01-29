@@ -23,7 +23,10 @@ public class VoiceDataHolder extends Thread {
 	private int bSamples = 16; // AudioFormat.ENCODING_PCM_16BIT;
 	private int sampleRate = 44100; // Use 8000; while in Debugger
 	private int frameByteSize = FFT_SIZE; // for 1024 fft size (16bit sample size)
+	int framePeriod = 0; // The number of oscillations during 'wave_chunk_ms'
+	int recBufSize =  0; 
 	byte[] buffer;
+	private Object syncer = null; 
 	
 	public VoiceDataHolder(Handler volume_level_handler){
 		if (android.os.Build.MODEL.contains("sdk")) 
@@ -31,7 +34,7 @@ public class VoiceDataHolder extends Thread {
 		else
 			sampleRate = 44100;
 		
-		int framePeriod = sampleRate * wave_chunk_ms / 1000; // The number of oscillations during 'wave_chunk_ms'
+		framePeriod = sampleRate * wave_chunk_ms / 1000; // The number of oscillations during 'wave_chunk_ms'
 		int bufferSize = framePeriod * bSamples * nChannels / 8;
 		
 		if (bufferSize % 1024 != 0) {
@@ -48,7 +51,8 @@ public class VoiceDataHolder extends Thread {
 		" Frame Buffer (bytes) "        +
 		Integer.toString(frameByteSize));
 		// need to be larger than size of a frame
-		int recBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfiguration, audioEncoding); 
+		
+		recBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfiguration, audioEncoding); 
 		if (recBufSize > 0) {
 			
 			// We want AudioRecord buffer to be at least N_FRAMES_IN_HW_BUFFER times larger than one frame's buffer (frameByteSize)
@@ -58,21 +62,43 @@ public class VoiceDataHolder extends Thread {
 			
 			Log.d ("Init 2", "AudioRecord Buffer (bytes) " +
 			Integer.toString(recBufSize));
-			audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 
-					sampleRate, channelConfiguration, audioEncoding, recBufSize);
-			if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
-			audioRecord.setRecordPositionUpdateListener(updateListener);
-			audioRecord.setPositionNotificationPeriod(framePeriod);
-			buffer = new byte[frameByteSize];
-			is_valid = true;
-			Log.d ("VoiceDataHolder", "Initialized OK");
+			if (recorderInit()) {
+				buffer = new byte[frameByteSize];
+				is_valid = true;
+				syncer = new Object();
+				Log.d ("VoiceDataHolder", "Initialized OK");
 			}
 		} else
 			is_valid = false;
 		
 		notify_handler = volume_level_handler;
+		setName("VoiceDataHolder");
 	}
 	
+	private boolean recorderInit () {
+		boolean ret = false;
+
+		if (audioRecord != null) {
+			if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED)
+				ret = true;
+			else {
+				audioRecord.release();
+				audioRecord = null;
+			}
+		}
+
+		if (!ret) {
+			audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 
+					sampleRate, channelConfiguration, audioEncoding, recBufSize);
+			if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+				audioRecord.setRecordPositionUpdateListener(updateListener);
+				audioRecord.setPositionNotificationPeriod(framePeriod);
+				ret = true;
+			}
+		}
+
+		return (ret);
+	}
 	private void VolumeLevelNotify () {
 		int		level = (int) averageAbsVolume;
 		if (notify_handler != null) {
@@ -92,6 +118,10 @@ public class VoiceDataHolder extends Thread {
 	}
 	
 	public void startRecording(){
+		if (!recorderInit ()) {
+			Log.e("VoiceDataHolder", "Recorder Init. failure");
+			return;
+		}
 		try{
 			audioRecord.startRecording();
 			isRecording = true;
@@ -103,7 +133,11 @@ public class VoiceDataHolder extends Thread {
 	public void stopRecording(){
 		try{
 			audioRecord.stop();
+			//audioRecord.release();
 			isRecording = false;
+			synchronized (syncer) {
+				   syncer.notify();
+				}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -138,7 +172,11 @@ public class VoiceDataHolder extends Thread {
             sample = (short)((buffer[i-1]) | buffer[i] << 8);
             totalAbsValue += Math.abs(sample);
         }
-        averageAbsVolume = totalAbsValue / n_read / 2;
+        
+        if (n_read > 0)
+          averageAbsVolume = totalAbsValue / n_read / 2;
+        else
+          averageAbsVolume = 0;
 
         Log.d("getFrameBytes", 
         		"Average Volume " + Float.toString(averageAbsVolume));
@@ -156,6 +194,20 @@ public class VoiceDataHolder extends Thread {
 		if (getFrameBytes() != null) {
 			VolumeLevelNotify();
 		}
+		try {
+			synchronized (syncer) {
+				
+				syncer.wait();
+			}
+			
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		audioRecord.setRecordPositionUpdateListener(null);
+
+		if (audioRecord.getState() == AudioRecord.RECORDSTATE_STOPPED)
+			Log.d("VoiceDataHolderRun", "Alredy Stopped");
 	}
 	
 
