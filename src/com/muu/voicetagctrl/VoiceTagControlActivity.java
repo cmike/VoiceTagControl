@@ -41,7 +41,7 @@ public class VoiceTagControlActivity extends Activity {
 		
 		if (mVoiceData.isValid()) {
 			UpdateVolume(0);
-			mVoiceData.start();
+			new Thread (mVoiceData, "VoiceDataHolder").start();
 		}
 		else {
 			Toast.makeText(getApplicationContext(), "Unable Start",

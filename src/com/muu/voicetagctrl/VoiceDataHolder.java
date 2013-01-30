@@ -7,7 +7,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-public class VoiceDataHolder extends Thread {
+public class VoiceDataHolder implements Runnable  {
 	Handler notify_handler = null;
 	
 	final static int FFT_SIZE = 2048;
@@ -72,29 +72,25 @@ public class VoiceDataHolder extends Thread {
 			is_valid = false;
 		
 		notify_handler = volume_level_handler;
-		setName("VoiceDataHolder");
+//		setName("VoiceDataHolder");
 	}
 	
 	private boolean recorderInit () {
 		boolean ret = false;
 
-		if (audioRecord != null) {
-			if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED)
-				ret = true;
-			else {
-				audioRecord.release();
-				audioRecord = null;
-			}
+		if (audioRecord != null && audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+			audioRecord.release();
+			audioRecord = null;
 		}
 
-		if (!ret) {
+		if (audioRecord == null)
 			audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 
 					sampleRate, channelConfiguration, audioEncoding, recBufSize);
-			if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+
+		if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
 				audioRecord.setRecordPositionUpdateListener(updateListener);
 				audioRecord.setPositionNotificationPeriod(framePeriod);
 				ret = true;
-			}
 		}
 
 		return (ret);
@@ -114,7 +110,8 @@ public class VoiceDataHolder extends Thread {
 	
 	public boolean isValid () { return (is_valid); }
 	public boolean isRecording(){
-		return this.isAlive() && isRecording;
+		return (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING);
+		//return this.isAlive() && isRecording;
 	}
 	
 	public void startRecording(){
