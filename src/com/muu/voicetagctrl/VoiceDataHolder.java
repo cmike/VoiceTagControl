@@ -25,6 +25,7 @@ public class VoiceDataHolder implements Runnable  {
 	private int frameByteSize = FFT_SIZE; // for 1024 fft size (16bit sample size)
 	int framePeriod = 0; // The number of oscillations during 'wave_chunk_ms'
 	int recBufSize =  0; 
+	WaveExt waveWriter = null;
 	byte[] buffer;
 	private Object syncer = null; 
 	
@@ -124,7 +125,11 @@ public class VoiceDataHolder implements Runnable  {
 			isRecording = true;
 		} catch (Exception e) {
 			e.printStackTrace();
+			isRecording = false;
 		}
+		
+		if (isRecording)
+			waveWriter = WaveExt.Init(sampleRate, null);
 	}
 	
 	public void stopRecording(){
@@ -183,6 +188,11 @@ public class VoiceDataHolder implements Runnable  {
         	return null;
         }
         
+		
+		if (waveWriter != null) {
+		  waveWriter.DataWrite(buffer);
+		}
+
 		return buffer;
 	}
 	
@@ -205,6 +215,11 @@ public class VoiceDataHolder implements Runnable  {
 
 		if (audioRecord.getState() == AudioRecord.RECORDSTATE_STOPPED)
 			Log.d("VoiceDataHolderRun", "Alredy Stopped");
+		
+		if (waveWriter != null) {
+		  waveWriter.Close();
+		  waveWriter = null;
+		}
 	}
 	
 
